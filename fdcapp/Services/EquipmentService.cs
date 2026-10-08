@@ -111,29 +111,36 @@ namespace fdcapp.Services
             }
         }
 
+        // 설비+파라미터의 임계치 규칙을 조회함. 규칙이 없으면 감사 로그를 남기고 예외 발생 (미감시 상태를 정상으로 오판하지 않음)
+        private ParamLimit GetRuleOrThrow(string equipId, string paramName)
+        {
+            ParamLimit? rule = _dbContext.ParamLimits
+                .FirstOrDefault(r => r.EquipId == equipId && r.ParamName == paramName);
+
+            if (rule != null)
+            {
+                return rule;
+            }
+
+            EquipLog noRuleLog = new EquipLog
+            {
+                EquipId = equipId,
+                LogType = "NO_RULE",
+                LogMsg = $"임계치 규칙 미설정: {equipId}/{paramName}",
+                OccurDt = DateTime.Now
+            };
+            _dbContext.EquipLogs.Add(noRuleLog);
+            _dbContext.SaveChanges();
+
+            throw new InvalidOperationException($"임계치 규칙이 없습니다: {equipId}/{paramName}");
+        }
+
         // 임계치 규칙과 비교해 판정 결과와 상태/로그 변경을 추적기에 반영함 (저장은 호출부에서)
         private FdcResult EvaluateParameterAlarm(string equipId, string paramName, double val)
         {
 
-            // 해당 설비+파라미터의 임계치 규칙 조회
-            ParamLimit? rule = _dbContext.ParamLimits
-                .FirstOrDefault(r => r.EquipId == equipId && r.ParamName == paramName);
-
-            // 규칙이 없으면 감사 로그를 남기고 예외 발생 (미감시 상태를 정상으로 오판하지 않음)
-            if (rule == null)
-            {
-                EquipLog noRuleLog = new EquipLog
-                {
-                    EquipId = equipId,
-                    LogType = "NO_RULE",
-                    LogMsg = $"임계치 규칙 미설정: {equipId}/{paramName}",
-                    OccurDt = DateTime.Now
-                };
-                _dbContext.EquipLogs.Add(noRuleLog);
-                _dbContext.SaveChanges();
-
-                throw new InvalidOperationException($"임계치 규칙이 없습니다: {equipId}/{paramName}");
-            }
+            // 해당 설비+파라미터의 임계치 규칙 조회 (없으면 NO_RULE 로그 후 예외)
+            ParamLimit rule = GetRuleOrThrow(equipId, paramName);
 
             // 정상 범위 판정
             if (val >= rule.LowerLimit && val <= rule.UpperLimit)
@@ -187,8 +194,22 @@ namespace fdcapp.Services
             lock (_dbLock)
             {
 
-                // 온도 기준 FDC 판정 (변경 사항은 추적기에만 반영, 아직 저장 안 함)
-                FdcResult result = EvaluateParameterAlarm(equipId, "TEMP", tempVal);
+                // 두 규칙이 모두 있는지 먼저 확인 (판정 변경이 추적기에 쌓이기 전에 NO_RULE 처리)
+                GetRuleOrThrow(equipId, "TEMP");
+                GetRuleOrThrow(equipId, "PRESS");
+
+                // 온도·압력 FDC 판정 (변경 사항은 추적기에만 반영, 아직 저장 안 함)
+                FdcResult tempResult = EvaluateParameterAlarm(equipId, "TEMP", tempVal);
+                FdcResult pressResult = EvaluateParameterAlarm(equipId, "PRESS", pressVal);
+
+                // 둘 중 하나라도 이탈하면 ALARM (메시지는 이탈한 항목만 이어 붙임)
+                FdcResult result = (tempResult.IsAlarm, pressResult.IsAlarm) switch
+                {
+                    (true, true) => new FdcResult(true, $"{tempResult.Message} / {pressResult.Message}"),
+                    (true, false) => tempResult,
+                    (false, true) => pressResult,
+                    _ => tempResult
+                };
 
                 // 수집 데이터 INSERT (IS_FAULT에 판정 결과 반영)
                 EquipData data = new EquipData
