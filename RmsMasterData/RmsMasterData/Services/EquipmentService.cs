@@ -8,7 +8,9 @@ namespace RmsMasterData.Services;
 /// <summary>
 /// 설비 기준정보 CRUD (TB_EQUIPMENT)
 ///   · 설비 ID 중복 방지
-///   · 사용 중인 설비(연결된 레시피가 있는 설비) 삭제 처리: 삭제하지 않고 이유를 알린다
+///   · 사용 중인 설비와 연결 데이터 삭제 처리: 연결된 레시피·파라미터를 설비와 함께 한 번에 삭제한다
+///     (FK_RECIPE_EQUIP에는 CASCADE가 없으므로 코드에서 하위 데이터를 먼저 지운다.
+///      RMS 결과(TB_RMS_RESULT)가 참조 중이면 FK 제약으로 저장이 거부되고 이유를 알린다)
 ///   · Entity와 DbContext로 반영 (SaveChangesAsync)
 /// </summary>
 public sealed class EquipmentService
@@ -57,18 +59,26 @@ public sealed class EquipmentService
         await SaveAsync(db);
     }
 
-    /// 삭제: 이 설비를 쓰는 레시피가 있으면 삭제하지 않는다 (사용 중인 설비)
+    /// 삭제 확인용: 이 설비에 연결된 레시피 수
+    public async Task<int> CountRecipesAsync(string equipId)
+    {
+        await using var db = AppConfig.CreateDbContext();
+        return await db.TbRmsRecipes.CountAsync(r => r.EquipId == equipId);
+    }
+
+    /// 삭제: 설비 + 연결된 레시피 + 그 파라미터를 한 번에 삭제 (SaveChangesAsync 1회 = 트랜잭션 1개)
     public async Task DeleteAsync(string equipId)
     {
         await using var db = AppConfig.CreateDbContext();
         var equipment = await db.TbEquipments.FindAsync(equipId)
                         ?? throw new BusinessException($"설비 ID '{equipId}'를 찾을 수 없습니다. 다시 조회하세요.");
 
-        int recipeCount = await db.TbRmsRecipes.CountAsync(r => r.EquipId == equipId);
-        if (recipeCount > 0)
-            throw new BusinessException($"설비 '{equipId}'를 사용하는 레시피가 {recipeCount}건 있어 삭제할 수 없습니다.\n" +
-                                        "레시피를 먼저 삭제하거나, 설비의 사용 여부를 'N'으로 변경하세요.");
-
+        var recipes = await db.TbRmsRecipes.Include(r => r.TbRmsRecipeParameters)
+                              .Where(r => r.EquipId == equipId)
+                              .ToListAsync();
+        foreach (var recipe in recipes)
+            db.TbRmsRecipeParameters.RemoveRange(recipe.TbRmsRecipeParameters);
+        db.TbRmsRecipes.RemoveRange(recipes);
         db.TbEquipments.Remove(equipment);
         await SaveAsync(db);
     }

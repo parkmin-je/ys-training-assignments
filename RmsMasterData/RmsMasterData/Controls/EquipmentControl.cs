@@ -108,15 +108,23 @@ public partial class EquipmentControl : UserControl
             return;
         }
         string id = txtEquipId.Text;
-        if (MessageBox.Show($"설비 '{id}'를 삭제할까요?", "삭제 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-            return;
 
         await RunAsync(async () =>
         {
+            // 사용 중인 설비면 연결 데이터(레시피·파라미터)도 함께 삭제된다는 것을 먼저 알린다
+            int recipeCount = await _service.CountRecipesAsync(id);
+            string question = recipeCount > 0
+                ? $"설비 '{id}'는 레시피 {recipeCount}건에서 사용 중입니다.\n설비와 연결된 레시피·파라미터를 모두 삭제할까요?"
+                : $"설비 '{id}'를 삭제할까요?";
+            if (MessageBox.Show(question, "삭제 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+
             await _service.DeleteAsync(id);
             SetNewMode();
             await LoadListAsync();
-            lblStatus.Text = $"설비 '{id}' 삭제 완료";
+            lblStatus.Text = recipeCount > 0
+                ? $"설비 '{id}'와 연결된 레시피 {recipeCount}건 삭제 완료"
+                : $"설비 '{id}' 삭제 완료";
         });
     }
 

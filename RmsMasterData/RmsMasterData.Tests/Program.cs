@@ -92,13 +92,17 @@ catch (DbUpdateException)
 }
 
 Console.WriteLine("\n■ 사용 중인 설비와 연결 데이터 삭제");
-await Expect("레시피가 연결된 설비 삭제", () => equipments.DeleteAsync("TST_EQP_1"));
-Check((await recipes.SearchAsync("TST_EQP_1", null)).Count == 1, "설비 삭제 거부 후 레시피 그대로 유지");
-await recipes.DeleteAsync("TST_RCP_1");
+await recipes.CreateAsync(new RecipeInput("TST_RCP_6", "TST_EQP_2", "MODEL", "F600", "Y"), P(("TEMP", "70")));
+await recipes.DeleteAsync("TST_RCP_6");
 await using (var db = AppConfig.CreateDbContext())
-    Check(!await db.TbRmsRecipeParameters.AnyAsync(p => p.RecipeId == "TST_RCP_1"), "레시피 삭제 → 연결된 파라미터도 함께 삭제");
+    Check(!await db.TbRmsRecipeParameters.AnyAsync(p => p.RecipeId == "TST_RCP_6"), "레시피 삭제 → 연결된 파라미터도 함께 삭제");
+Check(await equipments.CountRecipesAsync("TST_EQP_1") == 1, "삭제 확인: 설비에 연결된 레시피 수 1건");
 await equipments.DeleteAsync("TST_EQP_1");
-Check((await equipments.SearchAsync("TST_EQP_1", null)).Count == 0, "연결 레시피가 없어진 설비는 삭제됨");
+Check((await equipments.SearchAsync("TST_EQP_1", null)).Count == 0, "사용 중인 설비 삭제 → 설비 삭제됨");
+await using (var db = AppConfig.CreateDbContext())
+    Check(!await db.TbRmsRecipes.AnyAsync(r => r.EquipId == "TST_EQP_1")
+          && !await db.TbRmsRecipeParameters.AnyAsync(p => p.RecipeId == "TST_RCP_1"),
+          "사용 중인 설비 삭제 → 연결된 레시피·파라미터도 함께 삭제");
 
 await Cleanup();
 Console.WriteLine($"\nRESULT: {(fail == 0 ? "PASS" : "FAIL")}  (통과 {pass} / 실패 {fail})");
