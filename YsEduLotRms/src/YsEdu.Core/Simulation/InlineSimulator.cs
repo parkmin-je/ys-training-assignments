@@ -135,8 +135,9 @@ public sealed class InlineSimulator
             NewEvent("", "EQP_A", "RCP_A01", EventTypes.ProcessStart));
 
         var noZone = NewEvent(lotId, "EQP_A", "RCP_A01", EventTypes.ProcessStart);
-        noZone.EventTimeText = "2026100514000000";
-        await Step(steps, "시간대 없는 EventTime", Results.ERROR, Reasons.InvalidEventTime, noZone);
+        // 숫자형(2026100514000000, p.7 예제)은 허용하지만, ISO 형식에서 시간대를 뺀 값은 p.5 "시간대 포함" 위반으로 ERROR
+        noZone.EventTimeText = "2026-10-05T14:00:00";
+        await Step(steps, "시간대 없는 ISO EventTime", Results.ERROR, Reasons.InvalidEventTime, noZone);
 
         // DB 실패: LOTID가 컬럼 길이(NVARCHAR(50))를 넘어 INSERT 실패
         await Step(steps, "DB 처리 실패 (LOTID 60자)", Results.ERROR, Reasons.DbError,

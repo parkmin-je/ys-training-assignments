@@ -13,9 +13,27 @@ public static partial class XmlMessage
 {
     public const string TimeFormat = "yyyy-MM-dd'T'HH:mm:sszzz";
 
-    /// 시간대 포함 형식만 허용 (2차 p.5 "시간대 포함 발생시간") 예: 2026-10-05T09:04:00+09:00
+    /// 시간대 포함 형식 (2차 p.5 "시간대 포함 발생시간", p.6 예제) 예: 2026-10-05T09:04:00+09:00
     [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?(Z|[+-]\d{2}:\d{2})$")]
     private static partial Regex TimeWithZone();
+
+    /// 숫자 형식 (2차 p.7 예제) 예: 2026100514000000 = yyyyMMddHHmmss + 1/100초. 시간대가 없으므로 로컬(KST)로 본다
+    private static readonly string[] CompactFormats = ["yyyyMMddHHmmssff", "yyyyMMddHHmmss"];
+
+    private static bool TryParseEventTime(string text, out DateTimeOffset time)
+    {
+        if (TimeWithZone().IsMatch(text))
+            return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
+
+        if (DateTime.TryParseExact(text, CompactFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var local))
+        {
+            time = new DateTimeOffset(local);
+            return true;
+        }
+
+        time = default;
+        return false;
+    }
 
     public static string FormatTime(DateTimeOffset time) => time.ToString(TimeFormat, CultureInfo.InvariantCulture);
 
@@ -76,7 +94,8 @@ public static partial class XmlMessage
 
         var e = new ProductionEvent
         {
-            MessageName = Text(root, "MessageName"),
+            // p.6·7 예제는 MessageName, p.5 표는 MessageID — 둘 다 받는다
+            MessageName = Text(root, "MessageName") is { Length: > 0 } name ? name : Text(root, "MessageID"),
             ProductId = Text(root, "ProductID"),
             LotId = Text(root, "LOTID"),
             StepId = Text(root, "STEPID"),
@@ -136,8 +155,7 @@ public static partial class XmlMessage
 
         if (e.EventTimeText.Length > 0)
         {
-            if (TimeWithZone().IsMatch(e.EventTimeText)
-                && DateTimeOffset.TryParse(e.EventTimeText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+            if (TryParseEventTime(e.EventTimeText, out var time))
                 e.EventTime = time;
             else
                 errors.Add(Reasons.InvalidEventTime);
