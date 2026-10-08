@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProductionEventResponse>
+  <MessageName>MSG_B_001</MessageName>
+  <EventType>RMS_CHECK</EventType>
+  <LOTID>LOT_001</LOTID>
+  <EQPID>EQP_B</EQPID>
+  <Result>NG</Result>
+  <Reason>SPEED_MISMATCH</Reason>
+  <EventTime>2026-10-05T09:04:00+09:00</EventTime>
+</ProductionEventResponse>

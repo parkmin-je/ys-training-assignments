@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProductionEvent>
+  <MessageName>MSG_ERR_009</MessageName>
+  <ProductID>PRODUCT_A</ProductID>
+  <LOTID>LOT_001</LOTID>
+  <EQPID>EQP_A</EQPID>
+  <RecipeID>RCP_A01</RecipeID>
+  <EventType>PROCESS_START</EventType>
+  <EventTime>2026-10-05T15:09:00+09:00</EventTime>
+</ProductionEvent>

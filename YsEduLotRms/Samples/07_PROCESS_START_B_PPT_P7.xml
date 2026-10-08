@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProductionEvent>
+  <MessageName>PRCOESS_START</MessageName>
+  <ProductID>PRODUCT_A</ProductID>
+  <LOTID>LOT_001</LOTID>
+  <STEPID>STEP_020</STEPID>
+  <EQPID>EQP_B</EQPID>
+  <RecipeID>RCP_B01</RecipeID>
+  <EventType>PROCESS_START</EventType>
+  <EventTime>2026100514000000</EventTime>
+</ProductionEvent>

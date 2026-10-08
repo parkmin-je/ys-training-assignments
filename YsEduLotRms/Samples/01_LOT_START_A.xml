@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProductionEvent>
+  <MessageName>MSG_A_001</MessageName>
+  <ProductID>PRODUCT_A</ProductID>
+  <LOTID>LOT_001</LOTID>
+  <STEPID>STEP_020</STEPID>
+  <EQPID>EQP_A</EQPID>
+  <RecipeID>RCP_A01</RecipeID>
+  <EventType>LOT_START</EventType>
+  <EventTime>2026-10-05T09:00:00+09:00</EventTime>
+</ProductionEvent>

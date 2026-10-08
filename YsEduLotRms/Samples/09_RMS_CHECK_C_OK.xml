@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProductionEvent>
+  <MessageName>MSG_C_001</MessageName>
+  <ProductID>PRODUCT_A</ProductID>
+  <LOTID>LOT_001</LOTID>
+  <STEPID>STEP_020</STEPID>
+  <EQPID>EQP_C</EQPID>
+  <RecipeID>RCP_C01</RecipeID>
+  <EventType>RMS_CHECK</EventType>
+  <EventTime>2026-10-05T14:11:00+09:00</EventTime>
+  <Parameters>
+    <Parameter ParameterID="TEMP" Value="120" />
+    <Parameter ParameterID="PRESSURE" Value="30" />
+    <Parameter ParameterID="SPEED" Value="450" />
+  </Parameters>
+</ProductionEvent>
