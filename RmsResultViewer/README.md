@@ -8,6 +8,7 @@
 
 1. (선택) `Database/01_index_review.sql` — EVENT_TIME · EQUIP_ID 조회 인덱스 추가 (p.8 인덱스 검토)
 2. `RmsResultViewer.sln` → F5 → 이벤트 기간 확인 → [조회] → 결과 행 선택 → 아래에 파라미터
+3. 검증 프로그램: `dotnet run --project RmsResultViewer.Tests` — 기간(밀리초 경계 포함)·설비·레시피·복수 조건, 최신순 정렬, Detail 연결 (10/10 PASS)
 
 설정 위치: `RmsResultViewer/appsettings.json` (ConnectionStrings:YsRmsDB)
 
