@@ -19,6 +19,7 @@ public partial class RecipeControl : UserControl
     private bool _isNew = true;
     private bool _busy;
     private int _detailVersion;
+    private bool _detailLoading;                             // 선택한 레시피의 파라미터를 읽는 중 (저장 금지)
 
     public RecipeControl()
     {
@@ -103,7 +104,10 @@ public partial class RecipeControl : UserControl
         cboUseYn.SelectedItem = r.UseYn;
         grpParameter.Text = $"선택한 레시피의 파라미터 (Detail) — {r.RecipeId}";
 
+        // 이전 레시피의 파라미터가 남은 채로 저장되지 않도록 먼저 비우고, 다 읽을 때까지 저장을 막는다
         int version = ++_detailVersion;
+        BindParameters([]);
+        _detailLoading = true;
         try
         {
             var rows = await _service.GetParametersAsync(r.RecipeId);
@@ -113,6 +117,10 @@ public partial class RecipeControl : UserControl
         catch (Exception ex)
         {
             MessageBox.Show("파라미터 조회 실패\n" + ex.GetBaseException().Message);
+        }
+        finally
+        {
+            if (version == _detailVersion) _detailLoading = false;
         }
     }
 
@@ -133,6 +141,7 @@ public partial class RecipeControl : UserControl
     {
         _isNew = true;
         _detailVersion++;
+        _detailLoading = false;
         lblMode.Text = "[신규]";
         txtRecipeId.ReadOnly = false;
         txtRecipeId.Clear();
@@ -159,6 +168,11 @@ public partial class RecipeControl : UserControl
 
     private async void btnSave_Click(object sender, EventArgs e)
     {
+        if (!_isNew && _detailLoading)
+        {
+            MessageBox.Show("선택한 레시피의 파라미터를 불러오는 중입니다. 잠시 후 다시 저장하세요.");
+            return;
+        }
         dgvParameter.EndEdit();                              // 편집 중인 셀 값 반영
         var input = new RecipeInput(txtRecipeId.Text, cboEquipId.Text, txtFactorId.Text, txtFactorValue.Text, cboUseYn.Text);
         var rows = _parameters.ToList();
