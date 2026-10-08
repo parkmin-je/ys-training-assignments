@@ -30,15 +30,21 @@ public sealed class ResultQueryService
     {
         if (f.From > f.To) throw new ArgumentException("이벤트 시작 시간이 종료 시간보다 늦습니다.");
 
+        // 화면은 초 단위까지 입력하므로, 종료 시각은 그 초의 끝(.999)까지 포함한다 (EVENT_TIME은 밀리초까지 저장)
+        DateTime from = TruncateToSecond(f.From);
+        DateTime toExclusive = TruncateToSecond(f.To).AddSeconds(1);
+
         await using var db = Create();
         var query = db.TbRmsResults.AsNoTracking()
-            .Where(r => r.EventTime >= f.From && r.EventTime <= f.To);                        // 기간 밖 조회 안 함
+            .Where(r => r.EventTime >= from && r.EventTime < toExclusive);                    // 기간 밖 조회 안 함
         if (!string.IsNullOrWhiteSpace(f.EquipId)) query = query.Where(r => r.EquipId == f.EquipId.Trim());
         if (!string.IsNullOrWhiteSpace(f.RecipeId)) query = query.Where(r => r.RecipeId == f.RecipeId.Trim());
 
         return await query.OrderByDescending(r => r.EventTime).ThenByDescending(r => r.ResultId)  // 최신 EVENT_TIME 먼저
                           .ToListAsync(token);
     }
+
+    private static DateTime TruncateToSecond(DateTime value) => value.AddTicks(-(value.Ticks % TimeSpan.TicksPerSecond));
 
     public async Task<List<ParameterView>> GetParametersAsync(long resultId, CancellationToken token = default)
     {
