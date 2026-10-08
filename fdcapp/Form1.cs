@@ -356,11 +356,10 @@ namespace fdcapp
                 ReloadWithSelection(equipment.EquipId);
             }
 
-            // 알람(DOWN) 감지 시 시뮬레이터 자동 정지
+            // 알람 감지 시 DOWN 전환 사유를 상태 라벨에 표시 (수집은 [정지]까지 계속)
             if (cycle.Result?.IsAlarm == true)
             {
-                lblSimStatus.Text = $"DOWN 감지 - 시뮬레이터 정지: {cycle.Result.Message}";
-                StopSimulator();
+                lblSimStatus.Text = $"DOWN 감지: {cycle.Result.Message}";
             }
         }
 
