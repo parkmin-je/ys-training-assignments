@@ -16,6 +16,7 @@ public sealed record ProcessedInfo(DateTime Time, string Topic, int Partition, l
 ///   처리      : MessageProcessor (DB)
 ///   Producer  : YSEDU.LOT.RESPONSE로 응답 XML 송신 (Key = EQPID)
 /// 수신 대기는 별도 스레드(Task)에서 돌기 때문에 UI가 멈추지 않고,
+/// 처리·Commit 오류가 나도 수신 루프는 멈추지 않는다 (2차 p.12 "이후 수신 지속").
 /// Stop()은 수신 작업이 실제로 끝날 때까지 기다린 뒤 "수신 작업 종료 확인"을 기록한다.
 /// </summary>
 public sealed class MiddlewareWorker : IAsyncDisposable
@@ -100,7 +101,21 @@ public sealed class MiddlewareWorker : IAsyncDisposable
                 }
                 if (cr == null || cr.IsPartitionEOF) continue;
 
-                await HandleAsync(consumer, producer, cr, token);
+                try
+                {
+                    await HandleAsync(consumer, producer, cr, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // 예상하지 못한 처리 오류: 기록하고 Commit하지 않은 채 같은 위치를 다시 처리 (이후 수신 지속)
+                    _log.Error($"[처리 오류] {cr.TopicPartitionOffset} {ex.GetBaseException().Message} — 다시 처리 예정");
+                    consumer.Seek(cr.TopicPartitionOffset);
+                    await Task.Delay(1000, token);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -135,6 +150,11 @@ public sealed class MiddlewareWorker : IAsyncDisposable
             consumer.Seek(cr.TopicPartitionOffset);
             await Task.Delay(1000, token);
             return;
+        }
+        catch (KafkaException ex)
+        {
+            // Commit 실패: 응답은 이미 보냈으므로 기록만 하고 수신을 계속한다 (다시 받더라도 중복 확인에 걸림)
+            _log.Error($"[Commit 실패] {r.MessageName}: {ex.Error.Reason} — {cr.TopicPartitionOffset}");
         }
 
         string text = $"{cr.TopicPartitionOffset} {r.MessageName} {r.EventType} {r.EqpId} {r.LotId} → {r.Result} {r.Reason} ({outcome.Detail})";
