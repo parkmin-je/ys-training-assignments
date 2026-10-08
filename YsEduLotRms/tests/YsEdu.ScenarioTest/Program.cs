@@ -23,7 +23,46 @@ void Check(bool ok, string text)
     Console.WriteLine($"{(ok ? "  ✔" : "  ✘")} {text}");
 }
 
-Console.WriteLine("이력 초기화 (기준정보 유지)");
+// 제출용 이벤트별 XML 예제(Samples)가 실제 파서와 필수 항목 검사를 통과하는지 확인
+Console.WriteLine("■ XML 예제 파일 형식 확인 (Samples)");
+foreach (var path in Directory.GetFiles(FindSamplesDir(), "*.xml").Order())
+{
+    string name = Path.GetFileName(path);
+    string xml = File.ReadAllText(path);
+    if (name.StartsWith("90_"))
+    {
+        Check(XmlMessage.TryParseResponse(xml) != null, $"{name,-34} 응답 XML 형식");
+        continue;
+    }
+
+    var sample = XmlMessage.TryParse(xml, out var parseError);
+    if (name.StartsWith("28_"))
+    {
+        Check(sample == null, $"{name,-34} 파싱 실패 → XML_FORMAT_ERROR 대상");
+        continue;
+    }
+
+    var errors = sample == null ? [parseError] : XmlMessage.Validate(sample);
+    if (name.StartsWith("29_"))
+        Check(errors.Contains(Reasons.Missing("STEPID")), $"{name,-34} 필수 노드 누락 → {string.Join(",", errors)}");
+    else
+        Check(errors.Count == 0, $"{name,-34} 필수 항목·EventTime 통과{(errors.Count > 0 ? " ✘ " + string.Join(",", errors) : "")}");
+}
+var compact = XmlMessage.TryParse(File.ReadAllText(Path.Combine(FindSamplesDir(), "07_PROCESS_START_B_PPT_P7.xml")), out _)!;
+XmlMessage.Validate(compact);
+Check(compact.EventTime == new DateTimeOffset(new DateTime(2026, 10, 5, 14, 0, 0, DateTimeKind.Local)),
+      $"숫자형 EventTime 2026100514000000 → {compact.EventTime:yyyy-MM-dd HH:mm:ss zzz}");
+var byIdTag = XmlMessage.TryParse(File.ReadAllText(Path.Combine(FindSamplesDir(), "13_LOT_START_MESSAGEID_TAG.xml")), out _)!;
+Check(byIdTag.MessageName == "MSG_ID_001", "<MessageID> 태그도 메시지 식별값으로 사용");
+
+static string FindSamplesDir()
+{
+    var dir = new DirectoryInfo(AppContext.BaseDirectory);
+    while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Samples"))) dir = dir.Parent;
+    return Path.Combine(dir?.FullName ?? throw new DirectoryNotFoundException("Samples 폴더를 찾을 수 없습니다."), "Samples");
+}
+
+Console.WriteLine("\n이력 초기화 (기준정보 유지)");
 await HistoryReset.RunAsync(factory);
 
 await using var worker = new MiddlewareWorker(settings, log);
