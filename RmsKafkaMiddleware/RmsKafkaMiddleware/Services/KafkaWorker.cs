@@ -13,7 +13,8 @@ public sealed record HandledMessage(DateTime Time, int Partition, long Offset, s
 ///   02~05 처리        : RmsRequestProcessor
 ///   04 응답 XML 전송  : Producer로 RMS.RESPONSE에 송신
 ///   Commit            : 처리와 응답이 끝난 메시지만 Commit
-/// Kafka 오류(응답 전송 실패)는 기록하고, Commit하지 않은 채 같은 위치를 다시 처리한다 (메시지 처리 상태 유지).
+/// Kafka 오류(응답 전송 실패)·처리 오류는 기록하고, Commit하지 않은 채 같은 위치를 다시 처리한다 (메시지 처리 상태 유지).
+/// Commit 실패는 기록만 하고 수신을 계속한다. 어떤 오류에도 수신 루프는 멈추지 않는다.
 /// 다시 처리할 때는 중복 확인에 걸려 저장은 한 번만 된다.
 /// </summary>
 public sealed class KafkaWorker(AppSettings settings, FileLog log) : IAsyncDisposable
@@ -86,7 +87,19 @@ public sealed class KafkaWorker(AppSettings settings, FileLog log) : IAsyncDispo
                 }
                 if (cr == null || cr.IsPartitionEOF) continue;
 
-                var outcome = _processor.Process(cr.Message.Value ?? "", cr.Topic, cr.Partition.Value, cr.Offset.Value);
+                ProcessOutcome outcome;
+                try
+                {
+                    outcome = _processor.Process(cr.Message.Value ?? "", cr.Topic, cr.Partition.Value, cr.Offset.Value);
+                }
+                catch (Exception ex)
+                {
+                    // 예상하지 못한 처리 오류: 기록하고 Commit하지 않은 채 같은 위치를 다시 처리 (수신 루프는 유지)
+                    log.Error($"[처리 오류] {cr.TopicPartitionOffset} {ex.GetBaseException().Message} — 다시 처리 예정");
+                    consumer.Seek(cr.TopicPartitionOffset);
+                    await Task.Delay(1000, token);
+                    continue;
+                }
 
                 try
                 {
@@ -101,6 +114,11 @@ public sealed class KafkaWorker(AppSettings settings, FileLog log) : IAsyncDispo
                     consumer.Seek(cr.TopicPartitionOffset);
                     await Task.Delay(1000, token);
                     continue;
+                }
+                catch (KafkaException ex)
+                {
+                    // Commit 실패: 응답은 이미 보냈으므로 기록만 하고 수신을 계속한다 (다시 받더라도 중복 확인에 걸림)
+                    log.Error($"[Kafka Commit 실패] {ex.Error.Reason} — {cr.TopicPartitionOffset}");
                 }
 
                 Handled?.Invoke(new HandledMessage(DateTime.Now, cr.Partition.Value, cr.Offset.Value, outcome.ResultCode, outcome.ResultMessage,
