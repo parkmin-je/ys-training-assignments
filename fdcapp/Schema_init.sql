@@ -145,7 +145,7 @@ BEGIN
     (
         LIMIT_ID     BIGINT         IDENTITY(1,1) NOT NULL,   -- 임계치 규칙 번호
         EQUIP_ID     NVARCHAR(200)  NOT NULL,                 -- 설비 식별 코드 (FK 없음)
-        PARAM_NAME   NVARCHAR(200)  NOT NULL,                 -- 측정 파라미터 (TEMP, PRESSURE)
+        PARAM_NAME   NVARCHAR(200)  NOT NULL,                 -- 측정 파라미터 (TEMP, PRESS)
         LOWER_LIMIT  FLOAT          NOT NULL,                 -- 정상 하한값 (예: 20.0)
         UPPER_LIMIT  FLOAT          NOT NULL,                 -- 정상 상한값 (예: 80.0)
         CREATE_DT    DATETIME       NULL                      -- 룰 등록 일시
@@ -158,23 +158,21 @@ GO
 
 
 /* ============================================================================
-   4-1. 파라미터 임계치 규칙 초기 데이터 등록 (설비별 TEMP/PRESSURE 상·하한)
+   4-1. 파라미터 임계치 규칙 초기 데이터 등록 (설비별 TEMP/PRESS 상·하한)
    ----------------------------------------------------------------------------
-   ※ 코드의 파라미터명은 TEMP / PRESSURE 를 사용하므로 반드시 일치해야 함
+   ※ 파라미터명은 과제 PPT의 INSERT 예시대로 TEMP / PRESS 를 사용 (코드와 반드시 일치)
    ※ LIMIT_ID가 IDENTITY라 PK 중복 오류가 나지 않으므로,
       같은 설비·파라미터 규칙이 없을 때만 넣어 재실행 시 중복을 막는다
    ============================================================================ */
 INSERT INTO dbo.TB_PARAM_LIMIT (EQUIP_ID, PARAM_NAME, LOWER_LIMIT, UPPER_LIMIT)
 SELECT V.EQUIP_ID, V.PARAM_NAME, V.LOWER_LIMIT, V.UPPER_LIMIT
 FROM (VALUES
-    (N'EQP-001', N'TEMP', 20.0, 80.0),
-    (N'EQP-001', N'PRESSURE', 1.0, 5.0),
-    (N'EQP-002', N'TEMP', 20.0, 80.0),
-    (N'EQP-002', N'PRESSURE', 1.0, 5.0),
-    (N'EQP-003', N'TEMP', 20.0, 80.0),
-    (N'EQP-003', N'PRESSURE', 1.0, 5.0),
-    (N'EQP-004', N'TEMP', 20.0, 80.0),
-    (N'EQP-004', N'PRESSURE', 1.0, 5.0)
+    (N'EQP_001', N'TEMP', 20.0, 80.0),
+    (N'EQP_001', N'PRESS', 1.0, 5.0),
+    (N'EQP_002', N'TEMP', 20.0, 80.0),
+    (N'EQP_002', N'PRESS', 1.0, 5.0),
+    (N'EQP_003', N'TEMP', 20.0, 80.0),
+    (N'EQP_003', N'PRESS', 1.0, 5.0)
 ) AS V (EQUIP_ID, PARAM_NAME, LOWER_LIMIT, UPPER_LIMIT)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.TB_PARAM_LIMIT P
                   WHERE P.EQUIP_ID = V.EQUIP_ID AND P.PARAM_NAME = V.PARAM_NAME);
@@ -182,17 +180,16 @@ GO
 
 
 /* ============================================================================
-   5. 설비 기초 마스터 데이터 등록 (4건)
+   5. 설비 기초 마스터 데이터 등록 (3건, 과제 PPT 예시)
    ----------------------------------------------------------------------------
    ※ 이미 등록된 설비 ID는 건너뛰어 재실행 시 PK 중복 오류를 막는다
    ============================================================================ */
 INSERT INTO dbo.TB_EQUIPMENT (EQUIP_ID, EQUIP_NAME, LINE_NAME, STATUS, CREATE_DT)
 SELECT V.EQUIP_ID, V.EQUIP_NAME, V.LINE_NAME, V.STATUS, GETDATE()
 FROM (VALUES
-    (N'EQP-001', N'프레스 설비',     N'LINE-A', N'IDLE'),
-    (N'EQP-002', N'로봇 팔레타이저', N'LINE-A', N'RUN'),
-    (N'EQP-003', N'컨베이어 모터',   N'LINE-B', N'IDLE'),
-    (N'EQP-004', N'용접 로봇',       N'LINE-B', N'RUN')
+    (N'EQP_001', N'설비 1호기', N'LINE_A', N'IDLE'),
+    (N'EQP_002', N'설비 2호기', N'LINE_A', N'RUN'),
+    (N'EQP_003', N'설비 3호기', N'LINE_B', N'DOWN')
 ) AS V (EQUIP_ID, EQUIP_NAME, LINE_NAME, STATUS)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.TB_EQUIPMENT E WHERE E.EQUIP_ID = V.EQUIP_ID);
 GO
@@ -203,23 +200,23 @@ GO
    ----------------------------------------------------------------------------
    ※ 샘플 로그가 하나도 없을 때만 등록한다 (재실행 시 중복 방지)
    ============================================================================ */
-IF NOT EXISTS (SELECT 1 FROM dbo.TB_EQUIP_LOG WHERE OCCUR_DT = '2026-09-13 09:00:00' AND EQUIP_ID = N'EQP-001')
+IF NOT EXISTS (SELECT 1 FROM dbo.TB_EQUIP_LOG WHERE OCCUR_DT = '2026-09-13 09:00:00' AND EQUIP_ID = N'EQP_001')
 BEGIN
     -- 설비 등록 완료 (INFO)
     INSERT INTO dbo.TB_EQUIP_LOG (EQUIP_ID, LOG_TYPE, LOG_MSG, OCCUR_DT)
-    VALUES (N'EQP-001', N'INFO', N'설비 등록 완료', '2026-09-13 09:00:00');
+    VALUES (N'EQP_001', N'INFO', N'설비 등록 완료', '2026-09-13 09:00:00');
 
     -- 가동 시작 (STATUS_CHG)
     INSERT INTO dbo.TB_EQUIP_LOG (EQUIP_ID, LOG_TYPE, LOG_MSG, OCCUR_DT)
-    VALUES (N'EQP-001', N'STATUS_CHG', N'가동 시작 (IDLE -> RUN)', '2026-09-13 09:05:00');
+    VALUES (N'EQP_001', N'STATUS_CHG', N'가동 시작 (IDLE -> RUN)', '2026-09-13 09:05:00');
 
     -- 모터 과열 (ALARM)
     INSERT INTO dbo.TB_EQUIP_LOG (EQUIP_ID, LOG_TYPE, LOG_MSG, OCCUR_DT)
-    VALUES (N'EQP-002', N'ALARM', N'모터 과열 경보', '2026-09-13 09:10:00');
+    VALUES (N'EQP_002', N'ALARM', N'모터 과열 경보', '2026-09-13 09:10:00');
 
     -- 설비 등록 완료 (INFO)
     INSERT INTO dbo.TB_EQUIP_LOG (EQUIP_ID, LOG_TYPE, LOG_MSG, OCCUR_DT)
-    VALUES (N'EQP-003', N'INFO', N'설비 등록 완료', '2026-09-13 09:15:00');
+    VALUES (N'EQP_003', N'INFO', N'설비 등록 완료', '2026-09-13 09:15:00');
 END
 GO
 

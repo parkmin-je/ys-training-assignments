@@ -19,7 +19,7 @@ namespace fdcapp.Models
         [StringLength(200)]
         public string EquipId { get; set; } = string.Empty;
 
-        /// 측정 파라미터 (TEMP, PRESSURE)
+        /// 측정 파라미터 (TEMP, PRESS)
         [Required]
         [Column("PARAM_NAME")]
         [StringLength(200)]

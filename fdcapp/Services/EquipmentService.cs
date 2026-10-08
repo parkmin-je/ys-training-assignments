@@ -128,14 +128,14 @@ namespace fdcapp.Services
             string paramLabel = paramName switch
             {
                 "TEMP" => "온도",
-                "PRESSURE" => "압력",
+                "PRESS" => "압력",
                 _ => paramName
             };
 
             string unit = paramName switch
             {
                 "TEMP" => "℃",
-                "PRESSURE" => "bar",
+                "PRESS" => "bar",
                 _ => ""
             };
 

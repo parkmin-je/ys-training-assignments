@@ -30,11 +30,11 @@ namespace fdcapp
             LoadEquipmentList();
         }
 
-        // 라인 콤보박스에 LINE-A, LINE-B를 채우고 첫 항목을 선택함
+        // 라인 콤보박스에 LINE_A, LINE_B를 채우고 첫 항목을 선택함
         private void LoadLines()
         {
-            cboLine.Items.Add("LINE-A");
-            cboLine.Items.Add("LINE-B");
+            cboLine.Items.Add("LINE_A");
+            cboLine.Items.Add("LINE_B");
             cboLine.SelectedIndex = 0;
         }
 
@@ -44,11 +44,11 @@ namespace fdcapp
             cboStatus.Items.AddRange(new object[] { "IDLE", "RUN", "STOP", "ALARM", "DOWN" });
         }
 
-        // FDC 판정 콤보박스에 측정 파라미터(TEMP, PRESSURE)를 채우고 첫 항목을 선택함
+        // FDC 판정 콤보박스에 측정 파라미터(TEMP, PRESS)를 채우고 첫 항목을 선택함
         private void LoadParamOptions()
         {
             cboParam.Items.Add("TEMP");
-            cboParam.Items.Add("PRESSURE");
+            cboParam.Items.Add("PRESS");
             cboParam.SelectedIndex = 0;
         }
 
@@ -129,7 +129,7 @@ namespace fdcapp
             {
                 EquipId = equipId,
                 EquipName = equipName,
-                LineName = cboLine.SelectedItem?.ToString() ?? "LINE-A",
+                LineName = cboLine.SelectedItem?.ToString() ?? "LINE_A",
                 Status = "IDLE"
             };
 
